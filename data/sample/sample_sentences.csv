@@ -1,0 +1,13 @@
+text,language
+"Hello, how are you today?",eng
+"Learning languages is fun and rewarding.",eng
+"This project uses Support Vector Machines.",eng
+"Bonjour, comment allez-vous aujourd'hui ?",fra
+"Apprendre plusieurs langues ouvre beaucoup de portes.",fra
+"Ce modèle identifie la langue d'un texte court.",fra
+"Hola, ¿cómo estás hoy?",spa
+"Aprender idiomas es divertido y útil.",spa
+"Este modelo intenta clasificar el idioma correctamente.",spa
+
+
+

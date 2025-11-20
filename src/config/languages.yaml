@@ -1,0 +1,19 @@
+languages:
+  - code: eng
+    name: English
+    family: Germanic
+    sample_text: "Hello, thank you for using our language identifier."
+    iso2: en
+  - code: fra
+    name: French
+    family: Romance
+    sample_text: "Bonjour et merci d'utiliser notre détecteur de langue."
+    iso2: fr
+  - code: spa
+    name: Spanish
+    family: Romance
+    sample_text: "Hola y gracias por utilizar nuestro identificador de idiomas."
+    iso2: es
+
+
+

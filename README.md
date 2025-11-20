@@ -1,6 +1,6 @@
 ## Typological Language Identification Project
 
-This repository houses a supervised learning pipeline that classifies short text passages into a limited set of world languages. We target typological cues such as orthography, character n-gram structure, and diacritics to distinguish languages that commonly co-occur in multilingual corpora (e.g., English, French, German, Spanish, Italian).
+This repository now focuses on detecting three languages—English, French, and Spanish—using typological cues such as orthography, character n-gram structure, and diacritics. WiLI uses ISO-639-3 labels (`eng`, `fra`, `spa`), so this codebase does the same to stay consistent with the dataset.
 
 ### Project Goals
 - Build a reproducible dataset pipeline around the WiLI-2018 benchmark and optionally curated subsets.
@@ -9,13 +9,11 @@ This repository houses a supervised learning pipeline that classifies short text
 - Deliver interpretable evaluation artifacts: accuracy, confusion matrix, per-language precision/recall/F1, and top-k error analyses.
 
 ### Data Source
-- **WiLI-2018**: Wikipedia Language Identification dataset (235 languages; ~10k sentences per language).
-- We'll script utilities to:
-  - Download the official release from <https://zenodo.org/record/841984>.
-  - Filter to a manageable subset of languages (configurable list in `config/languages.yaml`).
-  - Split into train/validation/test folds (default 70/15/15) with stratification.
-  - Persist processed splits as parquet/CSV and optionally Hugging Face datasets for reproducibility.
-- Optional augmentation: include balanced synthetic corpora (news, EuroParl) if we need more robust diacritic coverage, but keep scope small for now.
+- **WiLI-2018**: Wikipedia Language Identification dataset (235 languages; **exactly 500 samples per language in each of the provided train/test files, i.e. 1 000 total per language**). This project now uses WiLI exclusively—no external augmentation.
+- Utilities provide:
+  - `python -m src.data.wili_downloader download` to fetch the official archive from <https://zenodo.org/record/841984>.
+  - `python -m src.data.wili_downloader prepare-subset --languages eng,fra,spa --limit-per-language -1` to filter to the three target languages and generate new train/val/test splits (70/15/15 by default). Setting `--limit-per-language -1` consumes all available WiLI rows.
+  - Derived CSVs plus metadata JSON live in `data/processed/`.
 
 ### Feature Engineering
 - Character n-gram counts (1–5 grams) with hashing or limited vocabulary to control dimensionality.
@@ -58,7 +56,7 @@ This repository houses a supervised learning pipeline that classifies short text
 ```
 
 ### Current Implementation Snapshot
-- `src/config/languages.yaml`: declarative list of seven supported languages (code, name, family, sample text) consumed by data prep + UI.
+- `src/config/languages.yaml`: declarative list of the supported languages (currently English, French, Spanish) consumed by data prep + UI (ISO-639-3 codes with optional ISO-639-1 aliases for display).
 - `src/data/wili_downloader.py`: downloads WiLI, computes archive checksums, balances language counts, and emits stratified train/val/test CSVs + metadata JSON.
 - `src/features/text_vectorizer.py`: char + word TF-IDF builders; `src/features/linguistic_features.py` adds handcrafted ratios (whitespace, diacritics, vowels, etc.).
 - `src/models/training_pipeline.py`: Typer CLI with optional grid search; saves sklearn Pipeline artifacts plus JSON metrics + confusion plots.
@@ -88,12 +86,13 @@ This repository houses a supervised learning pipeline that classifies short text
    ```
    python -m src.models.training_pipeline custom data/processed/wili_subset.csv --output-path artifacts/wili_language_svm.joblib --grid-search --jobs 4
    ```
-- Prepare a WiLI subset with your chosen languages:
+- Prepare a WiLI subset (restricted to English, French, Spanish by default, using all available WiLI examples when `--limit-per-language -1`):
    ```
    python -m src.data.wili_downloader download
    python -m src.data.wili_downloader prepare-subset \
-       --lang en --lang fr --lang es --lang de --lang it --lang pt --lang nl \
-       --limit-per-language 4000 --train-ratio 0.7 --val-ratio 0.15 --test-ratio 0.15
+       --languages eng,fra,spa \
+       --limit-per-language -1 \
+       --train-ratio 0.7 --val-ratio 0.15 --test-ratio 0.15
    ```
    The resulting CSV lives under `data/processed/wili_subset.csv` by default and plugs straight into the training CLI.
 - Explore metrics interactively via `notebooks/baseline_svm.ipynb`.
@@ -112,7 +111,7 @@ This repository houses a supervised learning pipeline that classifies short text
 - Tabs supply ready-to-use sample sentences per language for quick sanity checks.
 
 ### Next Steps
-1. Add additional corpora (newswire, EuroParl) for cross-domain robustness and expand `languages.yaml` as needed.
+1. If you need more data than WiLI provides (1 000 total rows per language), add additional corpora **in a separate branch** and update `languages.yaml` accordingly; the mainline build intentionally limits itself to WiLI.
 2. Introduce alternative classifiers (multilingual transformers, fastText) for comparison against the SVM baseline.
 3. Automate evaluation reports (Markdown/HTML) summarizing metrics, top errors, and indicative n-grams per language.
 4. Ship a lightweight API (FastAPI or Streamlit Cloud) so others can query the model remotely.
