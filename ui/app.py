@@ -34,6 +34,35 @@ HIDE_MENU = """
 header [data-testid="stToolbar"] {visibility: hidden;}
 header .st-emotion-cache-ucpwe8 {display: none;}
 [data-testid="stActionButtonIcon"] {display: none !important;}
+
+/* Color styling */
+/* Button */
+div.stButton > button:first-child {
+    background-color: #98CCFD;
+    color: white;
+    border-radius: 10px;
+    border-color: #FFFFFF;
+}
+div.stButton > button:hover {
+    background-color: #4788C7;
+}
+
+/* Text area */
+textarea, textarea:focus, textarea:active {
+    border: 2px solid #98CCFD !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Tab Color */
+.stTabs [aria-selected="true"] {
+    color: #4788C7 !important;
+}
+.stTabs [data-baseweb="tab-highlight"] {
+    background-color: #4788C7 !important;
+    height: 4px !important;
+    border-radius: 0 !important;
+}
 </style>
 """
 st.markdown(HIDE_MENU, unsafe_allow_html=True)
