@@ -49,8 +49,11 @@ st.caption(f"Supported languages: {supported_langs}")
 def list_artifacts() -> list[Path]:
     ARTIFACTS_DIR.mkdir(exist_ok=True, parents=True)
     artifacts = sorted(ARTIFACTS_DIR.glob("*.joblib"))
-    if DEFAULT_MODEL_PATH not in artifacts:
-        artifacts.insert(0, DEFAULT_MODEL_PATH)
+    # Filter out the sample model artifact
+    default_resolved = str(DEFAULT_MODEL_PATH.resolve())
+    artifact_paths = [str(a.resolve()) for a in artifacts]
+    # Remove sample model from the list if it exists
+    artifacts = [a for a in artifacts if str(a.resolve()) != default_resolved]
     return artifacts
 
 
@@ -62,14 +65,23 @@ def load_metrics(path: Path):
 
 
 @st.cache_resource(show_spinner=False)
-def get_pipeline(model_path: str, cache_id: str):
-    """Load pipeline with cache keyed on path and unique identifier."""
-    return load_pipeline(Path(model_path))
+def get_pipeline(cache_key: str):
+    """Load pipeline with cache keyed on a unique identifier per model."""
+    # Extract the absolute path from the cache key (format: "filename|abs_path|mtime")
+    parts = cache_key.split("|")
+    abs_path = parts[1] if len(parts) > 1 else cache_key
+    return load_pipeline(Path(abs_path))
 
 
 artifact_choices = list_artifacts()
 artifact_labels = [p.name for p in artifact_choices]
 selected_index = 0 if artifact_choices else None
+
+# Track selected model to detect changes and force cache refresh
+if "last_selected_model" not in st.session_state:
+    st.session_state.last_selected_model = None
+if "model_cache_version" not in st.session_state:
+    st.session_state.model_cache_version = 0
 
 with st.sidebar:
     st.header("Model Controls")
@@ -81,6 +93,12 @@ with st.sidebar:
         index=selected_index or 0,
         format_func=lambda p: p.name,
     )
+    
+    # Track model selection to detect changes and increment cache version
+    current_model_key = str(selected_model.resolve()) if selected_model.exists() else None
+    if current_model_key != st.session_state.last_selected_model:
+        st.session_state.last_selected_model = current_model_key
+        st.session_state.model_cache_version += 1
 
     metrics = load_metrics(selected_model)
     with st.expander("Current model metrics", expanded=False):
@@ -121,8 +139,9 @@ with st.sidebar:
                         path=conf_path,
                     )
                     st.success(f"Trained and saved to {output_path.name}")
-                    # Clear cache to ensure newly trained model is loaded
-                    get_pipeline.clear()
+                    # Update session state to trigger cache refresh for the newly trained model
+                    st.session_state.last_selected_model = None
+                    st.session_state.model_cache_version += 1
                     st.experimental_rerun()
             except Exception as exc:  # noqa: BLE001
                 st.error(f"Training failed: {exc}")
@@ -133,15 +152,20 @@ if artifact_choices:
         if not selected_model.exists():
             pipeline = None
         else:
-            # Use absolute resolved path and modification time to ensure unique cache key
-            # This ensures different models AND retrained models get different cache entries
+            # Create a truly unique cache key that includes filename, path, modification time, and version
+            # This ensures each model gets its own cache entry, even if paths are similar
             abs_model_path = str(selected_model.resolve())
-            # Include modification time so retrained models are detected
+            filename = selected_model.name
             mtime = selected_model.stat().st_mtime
-            # Create unique cache identifier combining path and modification time
-            cache_id = f"{abs_model_path}:{mtime:.6f}"
-            pipeline = get_pipeline(abs_model_path, cache_id)
-    except (FileNotFoundError, OSError):
+            cache_version = st.session_state.get("model_cache_version", 0)
+            # Format: "filename|abs_path|mtime|version" - ensures uniqueness per model file and version
+            # The filename ensures different models are distinguished even if paths are similar
+            # The mtime ensures retrained models get new cache entries
+            # The cache_version ensures cache invalidation when model selection changes
+            cache_key = f"{filename}|{abs_model_path}|{mtime:.6f}|{cache_version}"
+            pipeline = get_pipeline(cache_key)
+    except (FileNotFoundError, OSError) as e:
+        st.error(f"Error loading model {selected_model.name}: {e}")
         pipeline = None
 
 if pipeline is None:
